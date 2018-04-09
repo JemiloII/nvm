@@ -219,16 +219,14 @@ nvm_detect_profile() {
 
   local DETECTED_PROFILE
   DETECTED_PROFILE=''
-  local SHELLTYPE
-  SHELLTYPE="$(basename "/$SHELL")"
 
-  if [ "$SHELLTYPE" = "bash" ]; then
+  if [ -n "$BASH_VERSION" ]; then
     if [ -f "$HOME/.bashrc" ]; then
       DETECTED_PROFILE="$HOME/.bashrc"
     elif [ -f "$HOME/.bash_profile" ]; then
       DETECTED_PROFILE="$HOME/.bash_profile"
     fi
-  elif [ "$SHELLTYPE" = "zsh" ]; then
+  elif [ -n "$ZSH_VERSION" ]; then
     DETECTED_PROFILE="$HOME/.zshrc"
   fi
 
@@ -329,7 +327,9 @@ nvm_do_install() {
   local PROFILE_INSTALL_DIR
   PROFILE_INSTALL_DIR="$(nvm_install_dir | command sed "s:^$HOME:\$HOME:")"
 
-  SOURCE_STR="\\nexport NVM_DIR=\"${PROFILE_INSTALL_DIR}\"\\n[ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"  # This loads nvm\\n"
+  SOURCE_STR="\\nexport NVM_DIR=\"${PROFILE_INSTALL_DIR}\"\\n[ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"  # This loads nvm\\n\n"
+  ZSH_COMPLETION_STR='# Load compinit/compdef\n autoload -U compinit\n compinit\n\n'
+
   # shellcheck disable=SC2016
   COMPLETION_STR='[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion\n'
   BASH_OR_ZSH=false
@@ -357,6 +357,9 @@ nvm_do_install() {
     # shellcheck disable=SC2016
     if ${BASH_OR_ZSH} && ! command grep -qc '$NVM_DIR/bash_completion' "$NVM_PROFILE"; then
       echo "=> Appending bash_completion source string to $NVM_PROFILE"
+      if [ -n "$ZSH_VERSION" ]; then
+        command printf "$ZSH_COMPLETION_STR" >> "$NVM_PROFILE"
+      fi
       command printf "$COMPLETION_STR" >> "$NVM_PROFILE"
     else
       echo "=> bash_completion source string already in ${NVM_PROFILE}"
@@ -364,6 +367,9 @@ nvm_do_install() {
   fi
   if ${BASH_OR_ZSH} && [ -z "${NVM_PROFILE-}" ] ; then
     echo "=> Please also append the following lines to the if you are using bash/zsh shell:"
+    if [ -n "$ZSH_VERSION" ]; then
+        command printf "${ZSH_COMPLETION_STR}"
+    fi
     command printf "${COMPLETION_STR}"
   fi
 
@@ -380,6 +386,9 @@ nvm_do_install() {
   echo "=> Close and reopen your terminal to start using nvm or run the following to use it now:"
   command printf "${SOURCE_STR}"
   if ${BASH_OR_ZSH} ; then
+    if [ -n "$ZSH_VERSION" ]; then
+        command printf "${ZSH_COMPLETION_STR}"
+    fi
     command printf "${COMPLETION_STR}"
   fi
 }
